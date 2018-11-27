@@ -1,4 +1,5 @@
 from __future__ import print_function
+import os
 import sys
 import sqlparse
 from sqlparse.sql import Comparison, Identifier, Where
@@ -28,7 +29,6 @@ def suggest_type(full_text, text_before_cursor):
 
     identifier = None
 
-    # This is a temporary hack; the exception handling
     # here should be removed once sqlparse has been fixed
     try:
         # If we've partially typed a word then word_before_cursor won't be an empty
@@ -37,11 +37,12 @@ def suggest_type(full_text, text_before_cursor):
         # partially typed string which renders the smart completion useless because
         # it will always return the list of keywords as completion.
         if word_before_cursor:
-            if word_before_cursor[-1] == '(' or word_before_cursor[0] == '\\':
+            if word_before_cursor.endswith(
+                    '(') or word_before_cursor.startswith('\\'):
                 parsed = sqlparse.parse(text_before_cursor)
             else:
                 parsed = sqlparse.parse(
-                        text_before_cursor[:-len(word_before_cursor)])
+                    text_before_cursor[:-len(word_before_cursor)])
 
                 # word_before_cursor may include a schema qualification, like
                 # "schema_name.partial_name" or "schema_name.", so parse it
@@ -53,7 +54,7 @@ def suggest_type(full_text, text_before_cursor):
         else:
             parsed = sqlparse.parse(text_before_cursor)
     except (TypeError, AttributeError):
-        return []
+        return [{'type': 'keyword'}]
 
     if len(parsed) > 1:
         # Multiple statements being edited -- isolate the current one by
@@ -83,7 +84,7 @@ def suggest_type(full_text, text_before_cursor):
         # Be careful here because trivial whitespace is parsed as a statement,
         # but the statement won't have a first token
         tok1 = statement.token_first()
-        if tok1 and tok1.value == '\\':
+        if tok1 and tok1.value in ['\\', 'source']:
             return suggest_special(text_before_cursor)
 
     last_token = statement and statement.token_prev(len(statement.tokens))[1] or ''
@@ -94,7 +95,7 @@ def suggest_type(full_text, text_before_cursor):
 
 def suggest_special(text):
     text = text.lstrip()
-    cmd, arg = parse_special_command(text)
+    cmd, _, arg = parse_special_command(text)
 
     if cmd == text:
         # Trying to complete the special command itself
@@ -109,14 +110,17 @@ def suggest_special(text):
     if cmd in ['\\f', '\\fs', '\\fd']:
         return [{'type': 'favoritequery'}]
 
-    if cmd in ['\\dt']:
+    if cmd in ['\\dt', '\\dt+']:
         return [
             {'type': 'table', 'schema': []},
             {'type': 'view', 'schema': []},
             {'type': 'schema'},
         ]
+    elif cmd in ['\\.', 'source']:
+        return[{'type': 'file_name'}]
 
     return [{'type': 'keyword'}, {'type': 'special'}]
+
 
 def suggest_based_on_last_token(token, text_before_cursor, full_text, identifier):
     if isinstance(token, string_types):
@@ -214,16 +218,18 @@ def suggest_based_on_last_token(token, text_before_cursor, full_text, identifier
         # Check for a table alias or schema qualification
         parent = (identifier and identifier.get_parent_name()) or []
 
+        tables = extract_tables(full_text)
         if parent:
-            tables = extract_tables(full_text)
             tables = [t for t in tables if identifies(parent, *t)]
             return [{'type': 'column', 'tables': tables},
                     {'type': 'table', 'schema': parent},
                     {'type': 'view', 'schema': parent},
                     {'type': 'function', 'schema': parent}]
         else:
-            return [{'type': 'column', 'tables': extract_tables(full_text)},
+            aliases = [alias or table for (schema, table, alias) in tables]
+            return [{'type': 'column', 'tables': tables},
                     {'type': 'function', 'schema': []},
+                    {'type': 'alias', 'aliases': aliases},
                     {'type': 'keyword'}]
     elif (token_v.endswith('join') and token.is_keyword) or (token_v in
             ('copy', 'from', 'update', 'into', 'describe', 'truncate',
@@ -266,7 +272,7 @@ def suggest_based_on_last_token(token, text_before_cursor, full_text, identifier
         else:
             # ON <suggestion>
             # Use table alias if there is one, otherwise the table name
-            aliases = [t[2] or t[1] for t in tables]
+            aliases = [alias or table for (schema, table, alias) in tables]
             suggest = [{'type': 'alias', 'aliases': aliases}]
 
             # The lists of 'aliases' could be empty if we're trying to complete

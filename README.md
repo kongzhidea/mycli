@@ -6,7 +6,8 @@
 
 A command line client for MySQL that can do auto-completion and syntax highlighting.
 
-HomePage: [http://mycli.net](http://mycli.net)
+HomePage: [http://mycli.net](http://mycli.net)  
+Documentation: [http://mycli.net/docs](http://mycli.net/docs)
 
 ![Completion](screenshots/tables.png)
 ![CompletionGif](screenshots/main.gif)
@@ -27,7 +28,7 @@ $ pip install -U mycli
 or
 
 ```
-$ brew update && brew install mycli  # Only on OS X
+$ brew update && brew install mycli  # Only on macOS
 ```
 
 or
@@ -41,44 +42,58 @@ $ sudo apt-get install mycli # Only on debian or ubuntu
     $ mycli --help
     Usage: mycli [OPTIONS] [DATABASE]
 
+      A MySQL terminal client with auto-completion and syntax highlighting.
+
+      Examples:
+        - mycli my_database
+        - mycli -u my_user -h my_host.com my_database
+        - mycli mysql://my_user@my_host.com:3306/my_database
+
     Options:
       -h, --host TEXT               Host address of the database.
-      -P, --port TEXT               Port number to use for connection. Honors
-                                    $MYSQL_TCP_PORT
+      -P, --port INTEGER            Port number to use for connection. Honors
+                                    $MYSQL_TCP_PORT.
       -u, --user TEXT               User name to connect to the database.
       -S, --socket TEXT             The socket file to use for connection.
-      -p, --password                Force password prompt.
-      --pass TEXT                   Password to connect to the database
-      --ssl-ca PATH                 CA file in PEM format
-      --ssl-capath TEXT             CA directory
-      --ssl-cert PATH               X509 cert in PEM format
-      --ssl-key PATH                X509 key in PEM format
-      --ssl-cipher TEXT             SSL cipher to use
+      -p, --password TEXT           Password to connect to the database.
+      --pass TEXT                   Password to connect to the database.
+      --ssh-user TEXT               User name to connect to ssh server.
+      --ssh-host TEXT               Host name to connect to ssh server.
+      --ssh-port INTEGER            Port to connect to ssh server.
+      --ssh-password TEXT           Password to connect to ssh server.
+      --ssh-key-filename TEXT       Private key filename (identify file) for the
+                                    ssh connection.
+      --ssl-ca PATH                 CA file in PEM format.
+      --ssl-capath TEXT             CA directory.
+      --ssl-cert PATH               X509 cert in PEM format.
+      --ssl-key PATH                X509 key in PEM format.
+      --ssl-cipher TEXT             SSL cipher to use.
       --ssl-verify-server-cert      Verify server's "Common Name" in its cert
                                     against hostname used when connecting. This
-                                    option is disabled by default
-      -v, --version                 Version of mycli.
-      -D, --database TEXT     	    Database to use.
-      -R, --prompt TEXT             Prompt format (Default: "\t \u@\h:\d> ")
+                                    option is disabled by default.
+      -V, --version                 Output mycli's version.
+      -v, --verbose                 Verbose output.
+      -D, --database TEXT           Database to use.
+      -d, --dsn TEXT                Use DSN configured into the [alias_dsn]
+                                    section of myclirc file.
+      --list-dsn                    list of DSN configured into the [alias_dsn]
+                                    section of myclirc file.
+      -R, --prompt TEXT             Prompt format (Default: "\t \u@\h:\d> ").
       -l, --logfile FILENAME        Log every query and its results to a file.
-      --defaults-group-suffix TEXT  Read config group with the specified suffix.
-      --defaults-file PATH          Only read default options from the given file
+      --defaults-group-suffix TEXT  Read MySQL config groups with the specified
+                                    suffix.
+      --defaults-file PATH          Only read MySQL options from the given file.
+      --myclirc PATH                Location of myclirc file.
       --auto-vertical-output        Automatically switch to vertical output mode
                                     if the result is wider than the terminal
                                     width.
       -t, --table                   Display batch output in table format.
+      --csv                         Display batch output in CSV format.
       --warn / --no-warn            Warn before running a destructive query.
       --local-infile BOOLEAN        Enable/disable LOAD DATA LOCAL INFILE.
       --login-path TEXT             Read this path from the login file.
+      -e, --execute TEXT            Execute command and quit.
       --help                        Show this message and exit.
-
-### Examples
-
-    $ mycli local_database
-
-    $ mycli -h localhost -u root app_db
-
-    $ mycli mysql://amjith@localhost:3306/django_poll
 
 Features
 --------
@@ -92,11 +107,12 @@ Features
     - `SELECT * FROM <tab>` will only show table names.
     - `SELECT * FROM users WHERE <tab>` will only show column names.
 * Support for multiline queries.
-* Favorite queries. Save a query using `\fs alias query` and execute it with `\f alias` whenever you need.
+* Favorite queries with optional positional parameters. Save a query using
+  `\fs alias query` and execute it with `\f alias` whenever you need.
 * Timing of sql statments and table rendering.
 * Config file is automatically created at ``~/.myclirc`` at first launch.
 * Log every query and its results to a file (disabled by default).
-* Pretty prints tabular data.
+* Pretty prints tabular data (with colors!)
 * Support for SSL connections
 
 Contributions:
@@ -106,7 +122,7 @@ If you're interested in contributing to this project, first of all I would like
 to extend my heartfelt gratitude. I've written a small doc to describe how to
 get this running in a development setup.
 
-https://github.com/dbcli/mycli/blob/master/DEVELOP.rst
+https://github.com/dbcli/mycli/blob/master/CONTRIBUTING.md
 
 Please feel free to reach out to me if you need help.
 
@@ -138,6 +154,12 @@ Once that is installed, you can install mycli as follows:
 $ sudo pip install mycli
 ```
 
+### Cygwin
+
+1. Make sure the following Cygwin packages are installed:
+`python3`, `python3-pip`.
+2. Install mycli: `pip3 install mycli`
+
 ### Thanks:
 
 This project was funded through kickstarter. My thanks to the [backers](http://mycli.net/sponsors) who supported the project.
@@ -148,35 +170,25 @@ which is quite literally the backbone library, that made this app possible.
 Jonathan has also provided valuable feedback and support during the development
 of this app.
 
-[Click](http://click.pocoo.org/3/) is used for command line option parsing
+[Click](http://click.pocoo.org/) is used for command line option parsing
 and printing error messages.
 
 Thanks to [PyMysql](https://github.com/PyMySQL/PyMySQL) for a pure python adapter to MySQL database.
 
-[Tabulate](https://pypi.python.org/pypi/tabulate) library is used for pretty printing the output of tables.
-
 
 ### Compatibility
 
-Tests have been run on OS X and Linux.
+Mycli is tested on macOS and Linux.
 
-THIS HAS NOT BEEN TESTED IN WINDOWS, but the libraries used in this app are Windows compatible. This means it should work without any modifications. If you're unable to run it on Windows, please file a bug. I will try my best to fix it.
+**Mycli is not tested on Windows**, but the libraries used in this app are Windows-compatible.
+This means it should work without any modifications. If you're unable to run it
+on Windows, please [file a bug](https://github.com/dbcli/mycli/issues/new).
 
-### Use with pager (mysql workaround)
-As described [here](https://github.com/dbcli/mycli/issues/281), " we only read the [client] section of my.cnf not the [mysql] section".
+### Configuration and Usage
 
-So, if you want to use a pager, your .my.cnf file should looks like this:
+For more information on using and configuring mycli, [check out our documentation](http://mycli.net/docs).
 
-```
-[mysql]
-pager  = mypager
-[client]
-pager  = mypager
-```
-
-instead of just this :
-
-```
-[mysql]
-pager  = mypager
-```
+Common topics include:
+- [Configuring mycli](http://mycli.net/config)
+- [Using/Disabling the pager](http://mycli.net/pager)
+- [Syntax colors](http://mycli.net/syntax)

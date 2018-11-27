@@ -1,5 +1,282 @@
 TBD
-===
+====
+
+Bug Fixes:
+----------
+
+* Fix the missing completion for special commands (Thanks: [Amjith Ramanujam]).
+
+
+1.19.0
+======
+
+Internal:
+---------
+
+* Add Python 3.7 trove classifier (Thanks: [Thomas Roten]).
+* Fix pytest in Fedora mock (Thanks: [Dick Marinus]).
+* Require `prompt_toolkit>=2.0.6` (Thanks: [Dick Marinus]).
+
+Features:
+---------
+
+* Add Token.Prompt/Continuation (Thanks: [Dick Marinus]).
+* Don't reconnect when switching databases using use (Thanks: [Angelo Lupo]).
+* Handle MemoryErrors while trying to pipe in large files and exit gracefully with an error (Thanks: [Amjith Ramanujam])
+ 
+Bug Fixes:
+----------
+
+* Enable Ctrl-Z to suspend the app (Thanks: [Amjith Ramanujam]).
+
+1.18.2
+======
+
+Bug Fixes:
+----------
+
+* Fixes database reconnecting feature (Thanks: [Yang Zou]).
+
+Internal:
+---------
+
+* Update Twine version to 1.12.1 (Thanks: [Thomas Roten]).
+* Fix warnings for running tests on Python 3.7 (Thanks: [Dick Marinus]).
+* Clean up and add behave logging (Thanks: [Dick Marinus]).
+
+1.18.1
+======
+
+Features:
+---------
+
+* Add Keywords: TINYINT, SMALLINT, MEDIUMINT, INT, BIGINT (Thanks: [QiaoHou Peng]).
+
+Internal:
+---------
+
+* Update prompt toolkit (Thanks: [Jonathan Slenders], [Irina Truong], [Dick Marinus]).
+
+1.18.0
+======
+
+Features:
+---------
+
+* Display server version in welcome message (Thanks: [Irina Truong]).
+* Set `program_name` connection attribute (Thanks: [Dick Marinus]).
+* Use `return` to terminate a generator for better Python 3.7 support (Thanks: [Zhongyang Guan]).
+* Add `SAVEPOINT` to SQLCompleter (Thanks: [Huachao Mao]).
+* Connect using a SSH transport (Thanks: [Dick Marinus]).
+* Add `FROM_UNIXTIME` and `UNIX_TIMESTAMP` to SQLCompleter (Thanks: [QiaoHou Peng])
+* Search `${PWD}/.myclirc`, then `${HOME}/.myclirc`, lastly `/etc/myclirc` (Thanks: [QiaoHao Peng])
+
+Bug Fixes:
+----------
+
+* When DSN is used, allow overrides from mycli arguments (Thanks: [Dick Marinus]).
+* A DSN without password should be allowed (Thanks: [Dick Marinus])
+
+Bug Fixes:
+----------
+
+* Convert `sql_format` to unicode strings for py27 compatibility (Thanks: [Dick Marinus]).
+* Fixes mycli compatibility with pbr (Thanks: [Thomas Roten]).
+* Don't align decimals for `sql_format` (Thanks: [Dick Marinus]).
+
+Internal:
+---------
+
+* Use fileinput (Thanks: [Dick Marinus]).
+* Enable tests for Python 3.7 (Thanks: [Thomas Roten]).
+* Remove `*.swp` from gitignore (Thanks: [Dick Marinus]).
+
+1.17.0:
+=======
+
+Features:
+----------
+
+* Add `CONCAT` to SQLCompleter and remove unused code (Thanks: [caitinggui])
+* Do not quit when aborting a confirmation prompt (Thanks: [Thomas Roten]).
+* Add option list-dsn (Thanks: [Frederic Aoustin]).
+* Add verbose option for list-dsn, add tests and clean up code (Thanks: [Dick Marinus]).
+
+Bug Fixes:
+----------
+
+* Add enable_pager to the config file (Thanks: [Frederic Aoustin]).
+* Mark `test_sql_output` as a dbtest (Thanks: [Dick Marinus]).
+* Don't crash if the log/history file directories don't exist (Thanks: [Thomas Roten]).
+* Unquote dsn username and password (Thanks: [Dick Marinus]).
+* Output `Password:` prompt to stderr (Thanks: [ushuz]).
+* Mark `alter` as a destructive query (Thanks: [Dick Marinus]).
+* Quote CSV fields (Thanks: [Thomas Roten]).
+* Fix `thanks_picker` (Thanks: [Dick Marinus]).
+
+Internal:
+---------
+
+* Refactor Destructive Warning behave tests (Thanks: [Dick Marinus]).
+
+
+1.16.0:
+=======
+
+Features:
+---------
+
+* Add DSN aliases to the config file (Thanks: [Frederic Aoustin]).
+
+Bug Fixes:
+----------
+
+* Do not try to connect to a unix socket on Windows (Thanks: [Thomas Roten]).
+
+1.15.0:
+=======
+
+Features:
+---------
+
+* Add sql-update/insert output format. (Thanks: [Dick Marinus]).
+* Also complete aliases in WHERE. (Thanks: [Dick Marinus]).
+
+1.14.0:
+=======
+
+Features:
+---------
+
+* Add `watch [seconds] query` command to repeat a query every [seconds] seconds (by default 5). (Thanks: [David Caro](https://github.com/Terseus))
+* Default to unix socket connection if host and port are unspecified. This simplifies authentication on some systems and matches mysql behaviour.
+* Add support for positional parameters to favorite queries. (Thanks: [Scrappy Soft](https://github.com/scrappysoft))
+
+Bug Fixes:
+----------
+
+* Fix source command for script in current working directory. (Thanks: [Dick Marinus]).
+* Fix issue where the `tee` command did not work on Python 2.7 (Thanks: [Thomas Roten]).
+
+Internal Changes:
+-----------------
+
+* Drop support for Python 3.3 (Thanks: [Thomas Roten]).
+
+* Make tests more compatible between different build environments. (Thanks: [David Caro])
+* Merge `_on_completions_refreshed` and `_swap_completer_objects` functions (Thanks: [Dick Marinus]).
+
+1.13.1:
+=======
+
+Bug Fixes:
+----------
+
+* Fix keyword completion suggestion for `SHOW` (Thanks: [Thomas Roten]).
+* Prevent mycli from crashing when failing to read login path file (Thanks: [Thomas Roten]).
+
+Internal Changes:
+-----------------
+
+* Make tests ignore user config files (Thanks: [Thomas Roten]).
+
+1.13.0:
+=======
+
+Features:
+---------
+
+* Add file name completion for source command (issue #500). (Thanks: [Irina Truong]).
+
+Bug Fixes:
+----------
+
+* Fix UnicodeEncodeError when editing sql command in external editor (Thanks: Klaus Wünschel).
+* Fix MySQL4 version comment retrieval (Thanks: [François Pietka])
+* Fix error that occurred when outputting JSON and NULL data (Thanks: [Thomas Roten]).
+
+1.12.1:
+=======
+
+Bug Fixes:
+----------
+
+* Prevent missing MySQL help database from causing errors in completions (Thanks: [Thomas Roten]).
+* Fix mycli from crashing with small terminal windows under Python 2 (Thanks: [Thomas Roten]).
+* Prevent an error from displaying when you drop the current database (Thanks: [Thomas Roten]).
+
+Internal Changes:
+-----------------
+
+* Use less memory when formatting results for display (Thanks: [Dick Marinus]).
+* Preliminary work for a future change in outputting results that uses less memory (Thanks: [Dick Marinus]).
+
+1.12.0:
+=======
+
+Features:
+---------
+
+* Add fish-style auto-suggestion from history. (Thanks: [Amjith Ramanujam])
+
+
+1.11.0:
+=======
+
+Features:
+---------
+
+* Handle reserved space for completion menu better in small windows. (Thanks: [Thomas Roten]).
+* Display current vi mode in toolbar. (Thanks: [Thomas Roten]).
+* Opening an external editor will edit the last-run query. (Thanks: [Thomas Roten]).
+* Output once special command. (Thanks: [Dick Marinus]).
+* Add special command to show create table statement. (Thanks: [Ryan Smith])
+* Display all result sets returned by stored procedures (Thanks: [Thomas Roten]).
+* Add current time to prompt options (Thanks: [Thomas Roten]).
+* Output status text in a more intuitive way (Thanks: [Thomas Roten]).
+* Add colored/styled headers and odd/even rows (Thanks: [Thomas Roten]).
+* Keyword completion casing (upper/lower/auto) (Thanks: [Irina Truong]).
+
+Bug Fixes:
+----------
+
+* Fixed incorrect timekeeping when running queries from a file. (Thanks: [Thomas Roten]).
+* Do not display time and empty line for blank queries (Thanks: [Thomas Roten]).
+* Fixed issue where quit command would sometimes not work (Thanks: [Thomas Roten]).
+* Remove shebang from main.py (Thanks: [Dick Marinus]).
+* Only use pager if output doesn't fit. (Thanks: [Dick Marinus]).
+* Support tilde user directory for output file names (Thanks: [Thomas Roten]).
+* Auto vertical output is a little bit better at its calculations (Thanks: [Thomas Roten]).
+
+Internal Changes:
+-----------------
+
+* Rename tests/ to test/. (Thanks: [Dick Marinus]).
+* Move AUTHORS and SPONSORS to mycli directory. (Thanks: [Terje Røsten] []).
+* Switch from pycryptodome to cryptography (Thanks: [Thomas Roten]).
+* Add pager wrapper for behave tests (Thanks: [Dick Marinus]).
+* Behave test source command (Thanks: [Dick Marinus]).
+* Test using behave the tee command (Thanks: [Dick Marinus]).
+* Behave fix clean up. (Thanks: [Dick Marinus]).
+* Remove output formatter code in favor of CLI Helpers dependency (Thanks: [Thomas Roten]).
+* Better handle common before/after scenarios in behave. (Thanks: [Dick Marinus])
+* Added a regression test for sqlparse >= 0.2.3 (Thanks: [Dick Marinus]).
+* Reverted removal of temporary hack for sqlparse (Thanks: [Dick Marinus]).
+* Add setup.py commands to simplify development tasks (Thanks: [Thomas Roten]).
+* Add behave tests to tox (Thanks: [Dick Marinus]).
+* Add missing @dbtest to tests (Thanks: [Dick Marinus]).
+* Standardizes punctuation/grammar for help strings (Thanks: [Thomas Roten]).
+
+1.10.0:
+=======
+
+Features:
+---------
+
+* Add ability to specify alternative myclirc file. (Thanks: [Dick Marinus]).
+* Add new display formats for pretty printing query results. (Thanks: [Amjith
+  Ramanujam], [Dick Marinus], [Thomas Roten]).
+* Add logic to shorten the default prompt if it becomes too long once generated. (Thanks: [John Sterling]).
 
 Bug Fixes:
 ----------
@@ -10,12 +287,16 @@ Bug Fixes:
 * Fix requirements and remove old compatibility code (Thanks: [Dick Marinus])
 * Fix bug where mycli would not start due to the thanks/credit intro text.
   (Thanks: [Thomas Roten]).
+* Use pymysql default conversions (issue #375). (Thanks: [Dick Marinus]).
 
 Internal Changes:
 -----------------
 
 * Upload mycli distributions in a safer manner (using twine). (Thanks: [Thomas
   Roten]).
+* Test mycli using pexpect/python-behave (Thanks: [Dick Marinus]).
+* Run pep8 checks in travis (Thanks: [Irina Truong]).
+* Remove temporary hack for sqlparse (Thanks: [Dick Marinus]).
 
 1.9.0:
 ======
@@ -390,6 +671,7 @@ Bug Fixes:
 
 [Daniel West]: http://github.com/danieljwest
 [Irina Truong]: https://github.com/j-bennet
+[Amjith Ramanujam]: https://blog.amjith.com
 [Kacper Kwapisz]: https://github.com/KKKas
 [Martijn Engler]: https://github.com/martijnengler
 [Matheus Rosa]:  https://github.com/mdsrosa
@@ -407,3 +689,5 @@ Bug Fixes:
 [Casper Langemeijer]: https://github.com/langemeijer
 [Scrappy Soft]: https://github.com/scrappysoft
 [Dick Marinus]: https://github.com/meeuw
+[François Pietka]: https://github.com/fpietka
+[Frederic Aoustin]: https://github.com/fraoustin

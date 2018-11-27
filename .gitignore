@@ -3,9 +3,11 @@
 /dist
 /mycli.egg-info
 /src
+/test/behave.ini
 
 .vagrant
 *.pyc
 *.deb
-*.swp
 .cache/
+.coverage
+.coverage.*

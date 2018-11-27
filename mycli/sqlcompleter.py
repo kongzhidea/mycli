@@ -1,13 +1,15 @@
 from __future__ import print_function
 from __future__ import unicode_literals
 import logging
+from re import compile, escape
+from collections import Counter
+
 from prompt_toolkit.completion import Completer, Completion
+
 from .packages.completion_engine import suggest_type
 from .packages.parseutils import last_word
 from .packages.special.favoritequeries import favoritequeries
-from re import compile, escape
-from .packages.tabulate import table_formats
-from collections import Counter
+from .packages.filepaths import parse_path, complete_path, suggest_path
 
 _logger = logging.getLogger(__name__)
 
@@ -26,15 +28,15 @@ class SQLCompleter(Completer):
                 'MODIFY', 'NOT', 'NULL', 'NUMBER', 'OFFSET', 'ON', 'OPTION', 'OR',
                 'ORDER BY', 'OUTER', 'OWNER', 'PASSWORD', 'PORT', 'PRIMARY',
                 'PRIVILEGES', 'PROCESSLIST', 'PURGE', 'REFERENCES', 'REGEXP', 'RENAME', 'REPAIR', 'RESET',
-                'REVOKE', 'RIGHT', 'ROLLBACK','ROW', 'ROWS', 'ROW_FORMAT', 'SELECT', 'SESSION', 'SET',
-                'SHARE', 'SHOW', 'SLAVE', 'SMALLINT', 'START', 'STOP', 'TABLE', 'THEN',
+                'REVOKE', 'RIGHT', 'ROLLBACK', 'ROW', 'ROWS', 'ROW_FORMAT', 'SELECT', 'SESSION', 'SET',
+                'SAVEPOINT', 'SHARE', 'SHOW', 'SLAVE', 'SMALLINT', 'START', 'STOP', 'TABLE', 'THEN',
                 'TO', 'TRANSACTION', 'TRIGGER', 'TRUNCATE', 'UNION', 'UNIQUE', 'UNSIGNED', 'UPDATE',
                 'USE', 'USER', 'USING', 'VALUES', 'VARCHAR', 'VIEW', 'WHEN', 'WHERE',
-                'WITH']
+                'WITH', 'TINYINT', 'SMALLINT', 'MEDIUMINT', 'INT', 'BIGINT']
 
-    functions = ['AVG', 'COUNT', 'DISTINCT', 'FIRST', 'FORMAT', 'LAST',
+    functions = ['AVG', 'CONCAT', 'COUNT', 'DISTINCT', 'FIRST', 'FORMAT', 'LAST',
                  'LCASE', 'LEN', 'MAX', 'MIN', 'MID', 'NOW', 'ROUND', 'SUM',
-                 'TOP', 'UCASE']
+                 'TOP', 'UCASE','FROM_UNIXTIME', 'UNIX_TIMESTAMP']
 
     show_items = []
 
@@ -48,7 +50,7 @@ class SQLCompleter(Completer):
 
     users = []
 
-    def __init__(self, smart_completion=True):
+    def __init__(self, smart_completion=True, supported_formats=(), keyword_casing='auto'):
         super(self.__class__, self).__init__()
         self.smart_completion = smart_completion
         self.reserved_words = set()
@@ -57,7 +59,10 @@ class SQLCompleter(Completer):
         self.name_pattern = compile("^[_a-z][_a-z0-9\$]*$")
 
         self.special_commands = []
-        self.table_formats = table_formats()
+        self.table_formats = supported_formats
+        if keyword_casing not in ('upper', 'lower', 'auto'):
+            keyword_casing = 'auto'
+        self.keyword_casing = keyword_casing
         self.reset_completions()
 
     def escape_name(self, name):
@@ -194,7 +199,7 @@ class SQLCompleter(Completer):
         self.all_completions = set(self.keywords + self.functions)
 
     @staticmethod
-    def find_matches(text, collection, start_only=False, fuzzy=True):
+    def find_matches(text, collection, start_only=False, fuzzy=True, casing=None):
         """Find completion matches for the given text.
 
         Given the user's input text and a collection of available
@@ -208,7 +213,8 @@ class SQLCompleter(Completer):
         yields prompt_toolkit Completion instances for any matches found
         in the collection of available completions.
         """
-        text = last_word(text, include='most_punctuations').lower()
+        last = last_word(text, include='most_punctuations')
+        text = last.lower()
 
         completions = []
 
@@ -226,7 +232,16 @@ class SQLCompleter(Completer):
                 if match_point >= 0:
                     completions.append((len(text), match_point, item))
 
-        return (Completion(z, -len(text)) for x, y, z in sorted(completions))
+        if casing == 'auto':
+            casing = 'lower' if last and last[-1].islower() else 'upper'
+
+        def apply_case(kw):
+            if casing == 'upper':
+                return kw.upper()
+            return kw.lower()
+
+        return (Completion(z if casing is None else apply_case(z), -len(text))
+                for x, y, z in sorted(completions))
 
     def get_completions(self, document, complete_event, smart_completion=None):
         word_before_cursor = document.get_word_before_cursor(WORD=True)
@@ -277,7 +292,8 @@ class SQLCompleter(Completer):
                     predefined_funcs = self.find_matches(word_before_cursor,
                                                          self.functions,
                                                          start_only=True,
-                                                         fuzzy=False)
+                                                         fuzzy=False,
+                                                         casing=self.keyword_casing)
                     completions.extend(predefined_funcs)
 
             elif suggestion['type'] == 'table':
@@ -304,14 +320,16 @@ class SQLCompleter(Completer):
             elif suggestion['type'] == 'keyword':
                 keywords = self.find_matches(word_before_cursor, self.keywords,
                                              start_only=True,
-                                             fuzzy=False)
+                                             fuzzy=False,
+                                             casing=self.keyword_casing)
                 completions.extend(keywords)
 
             elif suggestion['type'] == 'show':
                 show_items = self.find_matches(word_before_cursor,
                                                self.show_items,
                                                start_only=False,
-                                               fuzzy=True)
+                                               fuzzy=True,
+                                               casing=self.keyword_casing)
                 completions.extend(show_items)
 
             elif suggestion['type'] == 'change':
@@ -342,8 +360,25 @@ class SQLCompleter(Completer):
                                             self.table_formats,
                                             start_only=True, fuzzy=False)
                 completions.extend(formats)
+            elif suggestion['type'] == 'file_name':
+                file_names = self.find_files(word_before_cursor)
+                completions.extend(file_names)
 
         return completions
+
+    def find_files(self, word):
+        """Yield matching directory or file names.
+
+        :param word:
+        :return: iterable
+
+        """
+        base_path, last_path, position = parse_path(word)
+        paths = suggest_path(word)
+        for name in sorted(paths):
+            suggestion = complete_path(name, last_path)
+            if suggestion:
+                yield Completion(suggestion, position)
 
     def populate_scoped_cols(self, scoped_tbls):
         """Find all columns in a set of scoped_tables

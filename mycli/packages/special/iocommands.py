@@ -1,9 +1,12 @@
+from __future__ import unicode_literals
 import os
 import re
 import locale
 import logging
 import subprocess
+import shlex
 from io import open
+from time import sleep
 
 import click
 import sqlparse
@@ -12,11 +15,13 @@ from . import export
 from .main import special_command, NO_QUERY, PARSED_QUERY
 from .favoritequeries import favoritequeries
 from .utils import handle_cd_command
+from mycli.packages.prompt_utils import confirm_destructive_query
 
 TIMING_ENABLED = False
 use_expanded_output = False
 PAGER_ENABLED = True
 tee_file = None
+once_file = written_to_once_file = None
 
 @export
 def set_timing_enabled(val):
@@ -33,7 +38,9 @@ def is_pager_enabled():
     return PAGER_ENABLED
 
 @export
-@special_command('pager', '\\P [command]', 'Set PAGER. Print the query results via PAGER', arg_type=PARSED_QUERY, aliases=('\\P', ), case_sensitive=True)
+@special_command('pager', '\\P [command]',
+                 'Set PAGER. Print the query results via PAGER.',
+                 arg_type=PARSED_QUERY, aliases=('\\P', ), case_sensitive=True)
 def set_pager(arg, **_):
     if arg:
         os.environ['PAGER'] = arg
@@ -77,12 +84,6 @@ def set_expanded_output(val):
 def is_expanded_output():
     return use_expanded_output
 
-def quit(*args):
-    raise NotImplementedError
-
-def stub(*args):
-    raise NotImplementedError
-
 _logger = logging.getLogger(__name__)
 
 @export
@@ -101,14 +102,10 @@ def get_filename(sql):
         command, _, filename = sql.partition(' ')
         return filename.strip() or None
 
-@export
-def open_external_editor(filename=None, sql=''):
-    """
-    Open external editor, wait for the user to type in his query,
-    return the query.
-    :return: list with one tuple, query as first element.
-    """
 
+@export
+def get_editor_query(sql):
+    """Get the query part of an editor command."""
     sql = sql.strip()
 
     # The reason we can't simply do .strip('\e') is that it strips characters,
@@ -118,15 +115,28 @@ def open_external_editor(filename=None, sql=''):
     while pattern.search(sql):
         sql = pattern.sub('', sql)
 
+    return sql
+
+
+@export
+def open_external_editor(filename=None, sql=None):
+    """Open external editor, wait for the user to type in their query, return
+    the query.
+
+    :return: list with one tuple, query as first element.
+
+    """
+
     message = None
     filename = filename.strip().split(' ', 1)[0] if filename else None
 
+    sql = sql or ''
     MARKER = '# Type your query above this line.\n'
 
     # Populate the editor buffer with the partial sql (if available) and a
     # placeholder comment.
-    query = click.edit(sql + '\n\n' + MARKER, filename=filename,
-            extension='.sql')
+    query = click.edit(u'{sql}\n\n{marker}'.format(sql=sql, marker=MARKER),
+                       filename=filename, extension='.sql')
 
     if filename:
         try:
@@ -144,27 +154,36 @@ def open_external_editor(filename=None, sql=''):
 
     return (query, message)
 
-@special_command('\\f', '\\f [name]', 'List or execute favorite queries.', arg_type=PARSED_QUERY, case_sensitive=True)
-def execute_favorite_query(cur, arg):
+
+@special_command('\\f', '\\f [name [args..]]', 'List or execute favorite queries.', arg_type=PARSED_QUERY, case_sensitive=True)
+def execute_favorite_query(cur, arg, **_):
     """Returns (title, rows, headers, status)"""
     if arg == '':
         for result in list_favorite_queries():
             yield result
 
-    query = favoritequeries.get(arg)
+    """Parse out favorite name and optional substitution parameters"""
+    name, _, arg_str = arg.partition(' ')
+    args = shlex.split(arg_str)
+
+    query = favoritequeries.get(name)
     if query is None:
-        message = "No favorite query: %s" % (arg)
+        message = "No favorite query: %s" % (name)
         yield (None, None, None, message)
     else:
-        for sql in sqlparse.split(query):
-            sql = sql.rstrip(';')
-            title = '> %s' % (sql)
-            cur.execute(sql)
-            if cur.description:
-                headers = [x[0] for x in cur.description]
-                yield (title, cur, headers, None)
-            else:
-                yield (title, None, None, None)
+        query, arg_error = subst_favorite_query_args(query, args)
+        if arg_error:
+            yield (None, None, None, arg_error)
+        else:
+            for sql in sqlparse.split(query):
+                sql = sql.rstrip(';')
+                title = '> %s' % (sql)
+                cur.execute(sql)
+                if cur.description:
+                    headers = [x[0] for x in cur.description]
+                    yield (title, cur, headers, None)
+                else:
+                    yield (title, None, None, None)
 
 def list_favorite_queries():
     """List of all favorite queries.
@@ -178,6 +197,22 @@ def list_favorite_queries():
     else:
         status = ''
     return [('', rows, headers, status)]
+
+
+def subst_favorite_query_args(query, args):
+    """replace positional parameters ($1...$N) in query."""
+    for idx, val in enumerate(args):
+        subst_var = '$' + str(idx + 1)
+        if subst_var not in query:
+            return [None, 'query does not have substitution parameter ' + subst_var + ':\n  ' + query]
+
+        query = query.replace(subst_var, val)
+
+    match = re.search('\\$\d+', query)
+    if match:
+        return[None, 'missing substitution for ' + match.group(0) + ' in query:\n  ' + query]
+
+    return [query, None]
 
 @special_command('\\fs', '\\fs name query', 'Save a favorite query.')
 def save_favorite_query(arg, **_):
@@ -210,11 +245,11 @@ def delete_favorite_query(arg, **_):
 
     return [(None, None, None, status)]
 
-@special_command('system', 'system [command]', 'Execute a system commmand.')
+
+@special_command('system', 'system [command]',
+                 'Execute a system shell commmand.')
 def execute_system_command(arg, **_):
-    """
-    Execute a system command.
-    """
+    """Execute a system shell command."""
     usage = "Syntax: system [command].\n"
 
     if not arg:
@@ -242,10 +277,8 @@ def execute_system_command(arg, **_):
     except OSError as e:
         return [(None, None, None, 'OSError: %s' % e.strerror)]
 
-@special_command('tee', 'tee [-o] filename',
-                 'write to an output file (optionally overwrite using -o)')
-def set_tee(arg, **_):
-    global tee_file
+
+def parseargfile(arg):
     if arg.startswith('-o '):
         mode = "w"
         filename = arg[3:]
@@ -256,8 +289,16 @@ def set_tee(arg, **_):
     if not filename:
         raise TypeError('You must provide a filename.')
 
+    return {'file': os.path.expanduser(filename), 'mode': mode}
+
+
+@special_command('tee', 'tee [-o] filename',
+                 'Append all results to an output file (overwrite using -o).')
+def set_tee(arg, **_):
+    global tee_file
+
     try:
-        tee_file = open(filename, mode)
+        tee_file = open(**parseargfile(arg))
     except (IOError, OSError) as e:
         raise OSError("Cannot write to file '{}': {}".format(e.filename, e.strerror))
 
@@ -270,7 +311,8 @@ def close_tee():
         tee_file.close()
         tee_file = None
 
-@special_command('notee', 'notee', 'stop writing to an output file')
+
+@special_command('notee', 'notee', 'Stop writing results to an output file.')
 def no_tee(arg, **_):
     close_tee()
     return [(None, None, None, "")]
@@ -279,6 +321,111 @@ def no_tee(arg, **_):
 def write_tee(output):
     global tee_file
     if tee_file:
-        tee_file.write(output)
-        tee_file.write(u"\n")
+        click.echo(output, file=tee_file, nl=False)
+        click.echo(u'\n', file=tee_file, nl=False)
         tee_file.flush()
+
+
+@special_command('\\once', '\\o [-o] filename',
+                 'Append next result to an output file (overwrite using -o).',
+                 aliases=('\\o', ))
+def set_once(arg, **_):
+    global once_file
+
+    once_file = parseargfile(arg)
+
+    return [(None, None, None, "")]
+
+
+@export
+def write_once(output):
+    global once_file, written_to_once_file
+    if output and once_file:
+        try:
+            f = open(**once_file)
+        except (IOError, OSError) as e:
+            once_file = None
+            raise OSError("Cannot write to file '{}': {}".format(
+                e.filename, e.strerror))
+
+        with f:
+            click.echo(output, file=f, nl=False)
+            click.echo(u"\n", file=f, nl=False)
+        written_to_once_file = True
+
+
+@export
+def unset_once_if_written():
+    """Unset the once file, if it has been written to."""
+    global once_file
+    if written_to_once_file:
+        once_file = None
+
+
+@special_command(
+    'watch',
+    'watch [seconds] [-c] query',
+    'Executes the query every [seconds] seconds (by default 5).'
+)
+def watch_query(arg, **kwargs):
+    usage = """Syntax: watch [seconds] [-c] query.
+    * seconds: The interval at the query will be repeated, in seconds.
+               By default 5.
+    * -c: Clears the screen between every iteration.
+"""
+    if not arg:
+        yield (None, None, None, usage)
+        return
+    seconds = 5
+    clear_screen = False
+    statement = None
+    while statement is None:
+        arg = arg.strip()
+        if not arg:
+            # Oops, we parsed all the arguments without finding a statement
+            yield (None, None, None, usage)
+            return
+        (current_arg, _, arg) = arg.partition(' ')
+        try:
+            seconds = float(current_arg)
+            continue
+        except ValueError:
+            pass
+        if current_arg == '-c':
+            clear_screen = True
+            continue
+        statement = '{0!s} {1!s}'.format(current_arg, arg)
+    destructive_prompt = confirm_destructive_query(statement)
+    if destructive_prompt is False:
+        click.secho("Wise choice!")
+        return
+    elif destructive_prompt is True:
+        click.secho("Your call!")
+    cur = kwargs['cur']
+    sql_list = [
+        (sql.rstrip(';'), "> {0!s}".format(sql))
+        for sql in sqlparse.split(statement)
+    ]
+    old_pager_enabled = is_pager_enabled()
+    while True:
+        if clear_screen:
+            click.clear()
+        try:
+            # Somewhere in the code the pager its activated after every yield,
+            # so we disable it in every iteration
+            set_pager_enabled(False)
+            for (sql, title) in sql_list:
+                cur.execute(sql)
+                if cur.description:
+                    headers = [x[0] for x in cur.description]
+                    yield (title, cur, headers, None)
+                else:
+                    yield (title, None, None, None)
+            sleep(seconds)
+        except KeyboardInterrupt:
+            # This prints the Ctrl-C character in its own line, which prevents
+            # to print a line with the cursor positioned behind the prompt
+            click.secho("", nl=True)
+            return
+        finally:
+            set_pager_enabled(old_pager_enabled)
